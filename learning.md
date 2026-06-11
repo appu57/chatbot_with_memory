@@ -11,3 +11,5 @@ All of these extends BaseMessage
 
 Persistence: Persistence in langgraph refers to the ability to save and restore the state of a workflow over time.
 Useful in fault tolerance because if any node crashes the retry starts from same point
+
+Streaming: In LLM, streaming means the model starts sending tokens(words) as soon as they are generated, instead of waiting for the entire response to be ready before returning it. 
