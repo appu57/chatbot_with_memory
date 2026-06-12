@@ -4,7 +4,8 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_groq import ChatGroq
 from langgraph.graph.message import add_messages #reducer function to append messages instead of replacing old messages
 from langgraph. checkpoint.sqlite import SqliteSaver
-
+from tools import calculator, web_search
+from langgraph.prebuilt import ToolNode, tools_condition
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,16 +18,22 @@ class ChatState(TypedDict):
     #if we dont use basemessage then the field value will be simple string, or other datatype and BaseMessage is base class of all three message types
     # annotated and add messages appends new message whereas normal fields replaces old value
 
-
+tools = [web_search, calculator]
+llm_with_tools = llm.bind_tools(tools)
 def chat_node(state: ChatState):
     messages = state['messages']
-    response = llm.invoke(messages)
+    response = llm_with_tools.invoke(messages)
     return {'messages':[response]} #because messages is a list
+
+tool_node = ToolNode(tools)
 
 graph = StateGraph(ChatState) #state (basically model that holds data)
 
 graph.add_node("chat_node", chat_node)
+graph.add_node("tools", tool_node)
+
 graph.add_edge(START, "chat_node"),
+graph.add_conditional_edges("chat_node", tools_condition)
 graph.add_edge("chat_node",END)
 
 
