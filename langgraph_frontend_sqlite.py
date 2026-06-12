@@ -1,13 +1,13 @@
 #Main chatbot streamlit code (ChatGPT-clone with threads)
 import streamlit as st
 from langgraph_backend_sqlite import chatbot_with_checkpointer, get_conversation_threads
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, AIMessageChunk
 import uuid
 
 ################### utility function
 def generate_thread_id():
     thread_id = uuid.uuid4()
-    return thread_id
+    return str(thread_id)
 
 def new_thread_chat():
     thread_id = generate_thread_id()
@@ -83,6 +83,7 @@ if user_input:
         st.text(user_input) 
 
     with st.chat_message('assistant'):
+        status_holder = {"box": None}
         #exclude tool message
         def ai_only_stream():
             for message_chunk, metadata in chatbot_with_checkpointer.stream(
@@ -92,8 +93,25 @@ if user_input:
                  config= get_config(st.session_state['thread_id']),
                  stream_mode= 'messages'
             ):
-                if isinstance(message_chunk, AIMessage):
+                if isinstance(message_chunk, ToolMessage):
+                    tool_name = getattr(message_chunk, "name", "tool")
+                    if status_holder["box"] is None:
+                        status_holder["box"] = st.status(
+                            f"🔧 Using `{tool_name}` …", expanded=True
+                        )
+                    else:
+                        status_holder["box"].update(
+                            label=f"🔧 Using `{tool_name}` …",
+                            state="running",
+                            expanded=True,
+                )
+                elif isinstance(message_chunk, (AIMessage,AIMessageChunk)):
                     yield message_chunk.content
+        ai_message = st.write_stream(ai_only_stream())
+        if status_holder["box"] is not None:
+            status_holder["box"].update(
+                label="✅ Tool finished", state="complete", expanded=False
+        )
 
         #Shows any message can be toolMessage, AIMessage everythin
         # ai_message = st.write_stream(
